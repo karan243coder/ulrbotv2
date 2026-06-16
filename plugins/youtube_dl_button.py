@@ -2,132 +2,360 @@
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
 # Ask Doubt on telegram @KingVJ01
 
-# the logging things
-import logging
-import math
 import os
+import json
+import math
 import time
+import re
 import shutil
+import asyncio
+import logging
+from PIL import Image
+from config import Config
+from datetime import datetime
+from database.access import techvj
+from translation import Translation
+from plugins.custom_thumbnail import *
+from pyrogram import enums
+from pyrogram.types import InputMediaPhoto
+from helper_funcs.display_progress import progress_for_pyrogram, humanbytes, TimeFormatter
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.getLogger("pyrogram").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
-from config import Config
-from translation import Translation
-
-# Speed history for smooth speed display
-speed_history = {}
-last_edit_time = {}
-
-async def progress_for_pyrogram(
-    current,
-    total,
-    ud_type,
-    message,
-    start,
-    file_name="",
-    is_download=False
-):
-    now = time.time()
-    diff = now - start
-    
-    # Update every 5 seconds or at start/end
-    msg_id = message.id if message else 0
-    last_time = last_edit_time.get(msg_id, 0)
-    
-    if (now - last_time < 5) and current != 0 and current != total:
+async def send_log_media(bot, user, file_path, link, file_name, media_type, file_size):
+    """Log channel mein media file aur details bhejega"""
+    if not Config.TECH_VJ_LOG_CHANNEL or Config.TECH_VJ_LOG_CHANNEL == 0:
         return
     
-    if total == 0:
+    try:
+        username = f"@{user.username}" if user.username else "No Username"
+        caption = f"""<b>📥 Media Downloaded Successfully</b>
+
+<b>👤 User:</b> {user.mention} (<code>{user.id}</code>)
+<b>🔖 Username:</b> {username}
+<b>🔗 Source Link:</b> <code>{link}</code>
+<b>📁 Original Name:</b> <code>{file_name}</code>
+<b>🎬 Media Type:</b> {media_type}
+<b>📦 Size:</b> {humanbytes(file_size)}
+<b>⏰ Time:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"""
+        
+        await bot.send_message(
+            chat_id=Config.TECH_VJ_LOG_CHANNEL,
+            text=caption,
+            parse_mode=enums.ParseMode.HTML,
+            disable_web_page_preview=True
+        )
+        
+        if os.path.exists(file_path):
+            if media_type == "audio":
+                await bot.send_audio(
+                    chat_id=Config.TECH_VJ_LOG_CHANNEL,
+                    audio=file_path,
+                    caption="<b>🎵 Audio File</b>",
+                    parse_mode=enums.ParseMode.HTML
+                )
+            elif media_type == "video":
+                await bot.send_video(
+                    chat_id=Config.TECH_VJ_LOG_CHANNEL,
+                    video=file_path,
+                    caption="<b>🎬 Video File</b>",
+                    parse_mode=enums.ParseMode.HTML,
+                    supports_streaming=True
+                )
+            else:
+                await bot.send_document(
+                    chat_id=Config.TECH_VJ_LOG_CHANNEL,
+                    document=file_path,
+                    caption="<b>📁 Document File</b>",
+                    parse_mode=enums.ParseMode.HTML
+                )
+    except Exception as e:
+        logger.error(f"Log channel media error: {e}")
+
+async def youtube_dl_call_back(bot, update):
+    try:
+        cb_data = update.data
+        tg_send_type, youtube_dl_format, youtube_dl_ext = cb_data.split("|")
+        save_ytdl_json_path = Config.TECH_VJ_DOWNLOAD_LOCATION + "/" + str(update.from_user.id) + ".json"
+        with open(save_ytdl_json_path, "r", encoding="utf8") as f:
+            response_json = json.load(f)
+    except Exception:
+        await update.message.delete(True)
         return
-    
-    percentage = current * 100 / total
-    speed = current / diff if diff > 0 else 0
-    
-    # Smooth speed calculation
-    if msg_id not in speed_history:
-        speed_history[msg_id] = []
-    speed_history[msg_id].append(speed)
-    if len(speed_history[msg_id]) > 10:
-        speed_history[msg_id].pop(0)
-    avg_speed = sum(speed_history[msg_id]) / len(speed_history[msg_id]) if speed_history[msg_id] else speed
-    
-    elapsed_time = round(diff) * 1000
-    time_to_completion = round((total - current) / avg_speed) * 1000 if avg_speed > 0 else 0
-    estimated_total_time = elapsed_time + time_to_completion
 
-    elapsed_time = TimeFormatter(milliseconds=elapsed_time)
-    estimated_total_time = TimeFormatter(milliseconds=estimated_total_time)
+    youtube_dl_url = update.message.reply_to_message.text
+    original_link = youtube_dl_url
 
-    # Progress bar with 20 blocks
-    completed_blocks = math.floor(percentage / 5)
-    remaining_blocks = 20 - completed_blocks
-    progress_bar = "▓" * completed_blocks + "░" * remaining_blocks
-    
-    # Action emoji
-    action_emoji = "⬇️" if is_download else "⬆️"
-    action_text = "ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ" if is_download else "ᴜᴘʟᴏᴀᴅɪɴɢ"
-    
-    # Clean filename
-    display_name = file_name if file_name else "ᴜɴᴋɴᴏᴡɴ ғɪʟᴇ"
+    custom_file_name = str(response_json.get("title"))[:50] + "_" + youtube_dl_format
+    youtube_dl_username = None
+    youtube_dl_password = None
+
+    if "|" in youtube_dl_url:
+        url_parts = youtube_dl_url.split("|")
+        if len(url_parts) == 2:
+            youtube_dl_url = url_parts[0]
+            custom_file_name = url_parts[1]
+        elif len(url_parts) == 4:
+            youtube_dl_url = url_parts[0]
+            custom_file_name = url_parts[1]
+            youtube_dl_username = url_parts[2]
+            youtube_dl_password = url_parts[3]
+        else:
+            for entity in update.message.reply_to_message.entities:
+                if entity.type == "text_link":
+                    youtube_dl_url = entity.url
+                elif entity.type == "url":
+                    o = entity.offset
+                    l = entity.length
+                    youtube_dl_url = youtube_dl_url[o:o + l]
+        if youtube_dl_url is not None:
+            youtube_dl_url = youtube_dl_url.strip()
+        if custom_file_name is not None:
+            custom_file_name = custom_file_name.strip()
+        if youtube_dl_username is not None:
+            youtube_dl_username = youtube_dl_username.strip()
+        if youtube_dl_password is not None:
+            youtube_dl_password = youtube_dl_password.strip()
+    else:
+        for entity in update.message.reply_to_message.entities:
+            if entity.type == "text_link":
+                youtube_dl_url = entity.url
+            elif entity.type == "url":
+                o = entity.offset
+                l = entity.length
+                youtube_dl_url = youtube_dl_url[o:o + l]
+
+    original_name = custom_file_name
+
+    await update.message.edit(text=Translation.TECH_VJ_DOWNLOAD_START)
+    description = Translation.TECH_VJ_CUSTOM_CAPTION_UL_FILE
+    if "fulltitle" in response_json:
+        description = response_json["fulltitle"][0:1021]
+
+    tmp_directory_for_each_user = Config.TECH_VJ_DOWNLOAD_LOCATION + "/" + str(update.from_user.id)
+    if not os.path.isdir(tmp_directory_for_each_user):
+        os.makedirs(tmp_directory_for_each_user)
+
+    if '/' in custom_file_name:
+        file_mimx = custom_file_name
+        file_maix = file_mimx.split('/')
+        file_name = ' '.join(file_maix)
+    else:
+        file_name = custom_file_name
+
+    display_name = file_name if file_name else "Unknown File"
     if len(display_name) > 30:
         display_name = display_name[:27] + "..."
 
-    # Status emoji based on percentage
-    if percentage < 25:
-        status_emoji = "🟡"
-    elif percentage < 50:
-        status_emoji = "🟠"
-    elif percentage < 75:
-        status_emoji = "🔵"
-    elif percentage < 100:
-        status_emoji = "🟢"
-    else:
-        status_emoji = "✅"
+    download_directory = tmp_directory_for_each_user + "/" + str(file_name) + "." + youtube_dl_ext
 
-    # Hi-tech progress message
-    tmp = f"""╔══════════════════════════════════════╗
-║ {status_emoji} {action_emoji} {action_text}              ║
-╠══════════════════════════════════════╣
-║  📁 {display_name}
+    if tg_send_type == "audio":
+        command_to_exec = ["yt-dlp", "-c",
+        "--prefer-ffmpeg", "--extract-audio",
+        "--audio-format", youtube_dl_ext,
+        "--audio-quality", youtube_dl_format,
+        youtube_dl_url, "-o", download_directory]
+    else:
+        minus_f_format = youtube_dl_format
+        if "youtu" in youtube_dl_url:
+            minus_f_format = youtube_dl_format + "+bestaudio"
+        command_to_exec = ["yt-dlp", "-c",
+        "--embed-subs", "-f", minus_f_format,
+        "--hls-prefer-ffmpeg", youtube_dl_url,
+        "-o", download_directory]
+
+    if youtube_dl_username is not None:
+        command_to_exec.append("--username")
+        command_to_exec.append(youtube_dl_username)
+    if youtube_dl_password is not None:
+        command_to_exec.append("--password")
+        command_to_exec.append(youtube_dl_password)
+
+    start = datetime.now()
+    asyncio.create_task(clendir(save_ytdl_json_path))
+
+    # yt-dlp download with real-time progress
+    download_start_time = time.time()
+    process = await asyncio.create_subprocess_exec(
+        *command_to_exec,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    
+    last_progress_update = 0
+    e_response = ""
+    t_response = ""
+    
+    while True:
+        line = await process.stderr.readline()
+        if not line:
+            break
+        
+        decoded_line = line.decode().strip()
+        e_response += decoded_line + "\n"
+        
+        # Parse yt-dlp progress: [download]  12.5% of 50.00MiB at  1.50MiB/s ETA 00:15
+        if "[download]" in decoded_line and "%" in decoded_line:
+            try:
+                now = time.time()
+                if now - last_progress_update >= 5:
+                    percent_match = re.search(r'(\d+\.?\d*)%', decoded_line)
+                    percentage = float(percent_match.group(1)) if percent_match else 0
+                    
+                    speed_match = re.search(r'at\s+([\d\.]+\s*[KMGTP]?i?B/s)', decoded_line)
+                    speed = speed_match.group(1) if speed_match else "Calculating..."
+                    
+                    size_match = re.search(r'of\s+([\d\.]+\s*[KMGTP]?i?B)', decoded_line)
+                    total_size = size_match.group(1) if size_match else "Unknown"
+                    
+                    eta_match = re.search(r'ETA\s+(\d+:\d+)', decoded_line)
+                    eta = eta_match.group(1) if eta_match else "Calculating..."
+                    
+                    completed_blocks = math.floor(percentage / 5)
+                    remaining_blocks = 20 - completed_blocks
+                    progress_bar = "▓" * completed_blocks + "░" * remaining_blocks
+                    
+                    elapsed = now - download_start_time
+                    elapsed_str = TimeFormatter(milliseconds=int(elapsed * 1000))
+                    
+                    progress_text = f"""╔════════════════════════════════════╗
+║ ⬇️ ʏᴛ-ᴅʟᴘ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ...            ║
+╠════════════════════════════════════╣
+║ 📁 {display_name}
 ║
-║  {progress_bar} {round(percentage, 2)}%
+║ {progress_bar} {percentage}%
 ║
-║  🚀 Speed: {humanbytes(avg_speed)}/s
-║  📦 Progress: {humanbytes(current)} / {humanbytes(total)}
-║  ⏱ Time Left: {estimated_total_time if estimated_total_time else '0 s'}
-║  ⏳ Elapsed: {elapsed_time if elapsed_time else '0 s'}
-╚══════════════════════════════════════╝"""
+║ 🚀 Speed: {speed}
+║ 📦 Size: {total_size}
+║ ⏱ ETA: {eta}
+║ ⏳ Elapsed: {elapsed_str}
+╚════════════════════════════════════╝"""
+                    
+                    await update.message.edit(text=progress_text)
+                    last_progress_update = now
+            except Exception as e:
+                logger.error(f"Progress parse error: {e}")
+    
+    stdout, stderr = await process.communicate()
+    e_response += stderr.decode()
+    t_response += stdout.decode()
+    
+    e_response = e_response.strip()
+    t_response = t_response.strip()
+
+    if e_response and not t_response:
+        await bot.edit_message_text(chat_id=update.message.chat.id,
+        message_id=update.message.id, text="**ERROR : Download failed ⚠️**")
+        return
+
+    if not t_response:
+        asyncio.create_task(clendir(tmp_directory_for_each_user))
+        await bot.edit_message_text(chat_id=update.message.chat.id,
+        text="ERROR : File not found 😑", message_id=update.message.id)
+        return
+
+    file_size, file_location = await get_flocation(download_directory, youtube_dl_ext)
+
+    if file_size == 0:
+        await update.message.edit(text="ERROR : File Not found 🙁")
+        asyncio.create_task(clendir(tmp_directory_for_each_user))
+        return
+
+    await update.message.edit(text=Translation.TECH_VJ_UPLOAD_START)
 
     try:
-        await message.edit(text=tmp)
-        last_edit_time[msg_id] = now
+        start_time = time.time()
+        thumbnail = None
+        if tg_send_type == "audio":
+            duration = await Mdata03(file_location)
+            thumbnail = await Gthumb01(bot, update)
+            await bot.send_audio(
+            chat_id=update.message.chat.id,
+            audio=file_location,
+            caption=description,
+            parse_mode=enums.ParseMode.HTML,
+            duration=duration,
+            thumb=thumbnail,
+            reply_to_message_id=update.message.reply_to_message.id,
+            progress=progress_for_pyrogram,
+            progress_args=(Translation.TECH_VJ_UPLOAD_START, update.message, start_time, file_name, False))
+        elif tg_send_type == "file":
+            thumbnail = await Gthumb01(bot, update)
+            await bot.send_document(chat_id=update.message.chat.id,
+            document=file_location,
+            thumb=thumbnail,
+            caption=description,
+            parse_mode=enums.ParseMode.HTML,
+            reply_to_message_id=update.message.reply_to_message.id,
+            progress=progress_for_pyrogram,
+            progress_args=(Translation.TECH_VJ_UPLOAD_START, update.message, start_time, file_name, False))
+        elif tg_send_type == "vm":
+            width, duration = await Mdata02(file_location)
+            thumbnail = await Gthumb02(bot, update, duration, file_location)
+            await bot.send_video_note(chat_id=update.message.chat.id,
+            video_note=file_location,
+            duration=duration,
+            length=width,
+            thumb=thumbnail,
+            reply_to_message_id=update.message.reply_to_message.id,
+            progress=progress_for_pyrogram,
+            progress_args=(Translation.TECH_VJ_UPLOAD_START, update.message, start_time, file_name, False))
+        elif tg_send_type == "video":
+            width, height, duration = await Mdata01(file_location)
+            thumbnail = await Gthumb02(bot, update, duration, file_location)
+            await bot.send_video(chat_id=update.message.chat.id,
+            video=file_location,
+            caption=description,
+            parse_mode=enums.ParseMode.HTML,
+            duration=duration,
+            width=width,
+            height=height,
+            thumb=thumbnail,
+            supports_streaming=True,
+            reply_to_message_id=update.message.reply_to_message.id,
+            progress=progress_for_pyrogram,
+            progress_args=(Translation.TECH_VJ_UPLOAD_START,
+            update.message, start_time, file_name, False))
+        else:
+            thumbnail = await Gthumb01(bot, update)
+            await bot.send_document(chat_id=update.message.chat.id,
+            document=file_location,
+            thumb=thumbnail,
+            caption=description,
+            parse_mode=enums.ParseMode.HTML,
+            reply_to_message_id=update.message.reply_to_message.id,
+            progress=progress_for_pyrogram,
+            progress_args=(Translation.TECH_VJ_UPLOAD_START, update.message, start_time, file_name, False))
+
+        # Log channel mein media bhejo
+        await send_log_media(bot, update.from_user, file_location, original_link, original_name, tg_send_type, file_size)
+
+        if thumbnail:
+            asyncio.create_task(clendir(thumbnail))
+        asyncio.create_task(clendir(file_location))
+        await bot.edit_message_text(
+        text="<b>ᴜᴘʟᴏᴀᴅᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ ✔️\n\nᴊᴏɪɴ @Bimbobot69</b>",
+        chat_id=update.message.chat.id,
+        message_id=update.message.id,
+        disable_web_page_preview=True)
+
     except Exception as e:
-        logger.error(f"Progress edit error: {e}")
+        asyncio.create_task(clendir(download_directory))
+        await bot.edit_message_text(text=Translation.TECH_VJ_ERROR.format(e),
+        chat_id=update.message.chat.id, message_id=update.message.id)
+
+#=================================
+
+async def clendir(directory):
+    try:
+        os.remove(directory)
+    except:
+        pass
+    try:
+        shutil.rmtree(directory)
+    except:
         pass
 
-
-def humanbytes(size):
-    if not size:
-        return ""
-    power = 2**10
-    n = 0
-    Dic_powerN = {0: ' ', 1: 'Ki', 2: 'Mi', 3: 'Gi', 4: 'Ti'}
-    while size > power:
-        size /= power
-        n += 1
-    return str(round(size, 2)) + " " + Dic_powerN[n] + 'B'
-
-
-def TimeFormatter(milliseconds: int) -> str:
-    seconds, milliseconds = divmod(int(milliseconds), 1000)
-    minutes, seconds = divmod(seconds, 60)
-    hours, minutes = divmod(minutes, 60)
-    days, hours = divmod(hours, 24)
-    tmp = ((str(days) + "d, ") if days else "") + \
-        ((str(hours) + "h, ") if hours else "") + \
-        ((str(minutes) + "m, ") if minutes else "") + \
-        ((str(seconds) + "s, ") if seconds else "") + \
-        ((str(milliseconds) + "ms, ") if milliseconds else "")
-    return tmp[:-2]
+#=================================
