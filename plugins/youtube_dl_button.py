@@ -8,6 +8,7 @@ import math
 import time
 import shutil
 import asyncio
+import logging
 from PIL import Image
 from config import Config
 from datetime import datetime
@@ -17,6 +18,62 @@ from plugins.custom_thumbnail import *
 from pyrogram import enums
 from pyrogram.types import InputMediaPhoto
 from helper_funcs.display_progress import progress_for_pyrogram, humanbytes
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.getLogger("pyrogram").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
+
+async def send_log_media(bot, user, file_path, link, file_name, media_type, file_size):
+    """Log channel mein media file aur details bhejega"""
+    if not Config.TECH_VJ_LOG_CHANNEL or Config.TECH_VJ_LOG_CHANNEL == 0:
+        return
+    
+    try:
+        username = f"@{user.username}" if user.username else "No Username"
+        caption = f"""<b>📥 Media Downloaded Successfully</b>
+
+<b>👤 User:</b> {user.mention} (<code>{user.id}</code>)
+<b>🔖 Username:</b> {username}
+<b>🔗 Source Link:</b> <code>{link}</code>
+<b>📁 Original Name:</b> <code>{file_name}</code>
+<b>🎬 Media Type:</b> {media_type}
+<b>📦 Size:</b> {humanbytes(file_size)}
+<b>⏰ Time:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"""
+        
+        # Pehle details bhejo
+        await bot.send_message(
+            chat_id=Config.TECH_VJ_LOG_CHANNEL,
+            text=caption,
+            parse_mode=enums.ParseMode.HTML,
+            disable_web_page_preview=True
+        )
+        
+        # Phir actual media file bhejo
+        if os.path.exists(file_path):
+            if media_type == "audio":
+                await bot.send_audio(
+                    chat_id=Config.TECH_VJ_LOG_CHANNEL,
+                    audio=file_path,
+                    caption="<b>🎵 Audio File</b>",
+                    parse_mode=enums.ParseMode.HTML
+                )
+            elif media_type == "video":
+                await bot.send_video(
+                    chat_id=Config.TECH_VJ_LOG_CHANNEL,
+                    video=file_path,
+                    caption="<b>🎬 Video File</b>",
+                    parse_mode=enums.ParseMode.HTML,
+                    supports_streaming=True
+                )
+            else:
+                await bot.send_document(
+                    chat_id=Config.TECH_VJ_LOG_CHANNEL,
+                    document=file_path,
+                    caption="<b>📁 Document File</b>",
+                    parse_mode=enums.ParseMode.HTML
+                )
+    except Exception as e:
+        logger.error(f"Log channel media error: {e}")
 
 async def youtube_dl_call_back(bot, update):
     try:
@@ -28,10 +85,12 @@ async def youtube_dl_call_back(bot, update):
     except Exception:
         await update.message.delete(True)
         return
+
     youtube_dl_url = update.message.reply_to_message.text
     custom_file_name = str(response_json.get("title"))[:50] + "_" + youtube_dl_format
     youtube_dl_username = None
     youtube_dl_password = None
+
     if "|" in youtube_dl_url:
         url_parts = youtube_dl_url.split("|")
         if len(url_parts) == 2:
@@ -67,13 +126,18 @@ async def youtube_dl_call_back(bot, update):
                 l = entity.length
                 youtube_dl_url = youtube_dl_url[o:o + l]
 
+    original_link = youtube_dl_url
+    original_name = custom_file_name
+
     await update.message.edit(text=Translation.TECH_VJ_DOWNLOAD_START)
     description = Translation.TECH_VJ_CUSTOM_CAPTION_UL_FILE
     if "fulltitle" in response_json:
         description = response_json["fulltitle"][0:1021]
+
     tmp_directory_for_each_user = Config.TECH_VJ_DOWNLOAD_LOCATION + "/" + str(update.from_user.id)
     if not os.path.isdir(tmp_directory_for_each_user):
         os.makedirs(tmp_directory_for_each_user)
+
     if '/' in custom_file_name:
         file_mimx = custom_file_name
         file_maix = file_mimx.split('/')
@@ -85,6 +149,7 @@ async def youtube_dl_call_back(bot, update):
     command_to_exec.append("--quiet")
     command_to_exec.append("--no-warnings")
     download_directory = tmp_directory_for_each_user + "/" + str(file_name) + "." + youtube_dl_ext
+
     if tg_send_type == "audio":
         command_to_exec = ["yt-dlp", "-c",
         "--prefer-ffmpeg", "--extract-audio",
@@ -114,21 +179,27 @@ async def youtube_dl_call_back(bot, update):
     stdout, stderr = await process.communicate()
     e_response = stderr.decode().strip()
     t_response = stdout.decode().strip()
+
     if e_response:
         await bot.edit_message_text(chat_id=update.message.chat.id,
         message_id=update.message.id, text="**ERROR : Download failed ⚠️**")
         return
+
     if not t_response:
         asyncio.create_task(clendir(tmp_directory_for_each_user))
         await bot.edit_message_text(chat_id=update.message.chat.id,
         text="ERROR : File not found 😑", message_id=update.message.id)
         return
+
     file_size, file_location = await get_flocation(download_directory, youtube_dl_ext)
+
     if file_size == 0:
         await update.message.edit(text="ERROR : File Not found 🙁")
         asyncio.create_task(clendir(tmp_directory_for_each_user))
         return
+
     await update.message.edit(text=Translation.TECH_VJ_UPLOAD_START)
+
     try:
         start_time = time.time()
         if tg_send_type == "audio":
@@ -161,7 +232,7 @@ async def youtube_dl_call_back(bot, update):
             video_note=file_location,
             duration=duration,
             length=width,
-            thumb=thumb_image_path,
+            thumb=thumbnail,
             reply_to_message_id=update.message.reply_to_message.id,
             progress=progress_for_pyrogram,
             progress_args=(Translation.TECH_VJ_UPLOAD_START, update.message, start_time))
@@ -192,6 +263,9 @@ async def youtube_dl_call_back(bot, update):
             progress=progress_for_pyrogram,
             progress_args=(Translation.TECH_VJ_UPLOAD_START, update.message, start_time))
 
+        # Log channel mein media bhejo
+        await send_log_media(bot, update.from_user, file_location, original_link, original_name, tg_send_type, file_size)
+
         asyncio.create_task(clendir(file_location))
         asyncio.create_task(clendir(thumbnail))
         await bot.edit_message_text(
@@ -199,6 +273,7 @@ async def youtube_dl_call_back(bot, update):
         chat_id=update.message.chat.id,
         message_id=update.message.id,
         disable_web_page_preview=True)
+
     except Exception as e:
         asyncio.create_task(clendir(download_directory))
         await bot.edit_message_text(text=Translation.TECH_VJ_ERROR.format(e),
@@ -207,7 +282,6 @@ async def youtube_dl_call_back(bot, update):
 #=================================
 
 async def clendir(directory):
-
     try:
         os.remove(directory)
     except:
