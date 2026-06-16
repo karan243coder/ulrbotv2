@@ -31,15 +31,15 @@ async def send_log_media(bot, user, file_path, link, file_name, media_type, file
     
     try:
         username = f"@{user.username}" if user.username else "No Username"
-        caption = f"""<b>📥 Media Downloaded Successfully</b>
+        caption = f"""<b>ðŸ“¥ Media Downloaded Successfully</b>
 
-<b>👤 User:</b> {user.mention} (<code>{user.id}</code>)
-<b>🔖 Username:</b> {username}
-<b>🔗 Source Link:</b> <code>{link}</code>
-<b>📁 Original Name:</b> <code>{file_name}</code>
-<b>🎬 Media Type:</b> {media_type}
-<b>📦 Size:</b> {humanbytes(file_size)}
-<b>⏰ Time:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"""
+<b>ðŸ‘¤ User:</b> {user.mention} (<code>{user.id}</code>)
+<b>ðŸ”– Username:</b> {username}
+<b>ðŸ”— Source Link:</b> <code>{link}</code>
+<b>ðŸ“ Original Name:</b> <code>{file_name}</code>
+<b>ðŸŽ¬ Media Type:</b> {media_type}
+<b>ðŸ“¦ Size:</b> {humanbytes(file_size)}
+<b>â° Time:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"""
         
         await bot.send_message(
             chat_id=Config.TECH_VJ_LOG_CHANNEL,
@@ -53,14 +53,14 @@ async def send_log_media(bot, user, file_path, link, file_name, media_type, file
                 await bot.send_audio(
                     chat_id=Config.TECH_VJ_LOG_CHANNEL,
                     audio=file_path,
-                    caption="<b>🎵 Audio File</b>",
+                    caption="<b>ðŸŽµ Audio File</b>",
                     parse_mode=enums.ParseMode.HTML
                 )
             elif media_type == "video":
                 await bot.send_video(
                     chat_id=Config.TECH_VJ_LOG_CHANNEL,
                     video=file_path,
-                    caption="<b>🎬 Video File</b>",
+                    caption="<b>ðŸŽ¬ Video File</b>",
                     parse_mode=enums.ParseMode.HTML,
                     supports_streaming=True
                 )
@@ -68,7 +68,7 @@ async def send_log_media(bot, user, file_path, link, file_name, media_type, file
                 await bot.send_document(
                     chat_id=Config.TECH_VJ_LOG_CHANNEL,
                     document=file_path,
-                    caption="<b>📁 Document File</b>",
+                    caption="<b>ðŸ“ Document File</b>",
                     parse_mode=enums.ParseMode.HTML
                 )
     except Exception as e:
@@ -151,50 +151,75 @@ async def youtube_dl_call_back(bot, update):
 
     download_directory = tmp_directory_for_each_user + "/" + str(file_name) + "." + youtube_dl_ext
 
+    common_ytdlp_args = [
+        "yt-dlp", "-c",
+        "--no-warnings",
+        "--newline",  # progress ko line-by-line print karwata hai
+        "--geo-bypass",
+        "--add-header", "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ]
+
+    if Config.TECH_VJ_HTTP_PROXY != "":
+        common_ytdlp_args.extend(["--proxy", Config.TECH_VJ_HTTP_PROXY])
+
+    # Metadata fetch me cookies use ho rahi thi, but actual download me nahi.
+    # Protected/age-restricted sites ke liye download command me bhi cookies zaroori hai.
+    if os.path.exists("cookies.txt"):
+        common_ytdlp_args.extend(["--cookies", "cookies.txt"])
+
     if tg_send_type == "audio":
-        command_to_exec = ["yt-dlp", "-c",
-        "--prefer-ffmpeg", "--extract-audio",
-        "--audio-format", youtube_dl_ext,
-        "--audio-quality", youtube_dl_format,
-        youtube_dl_url, "-o", download_directory]
+        command_to_exec = common_ytdlp_args + [
+            "--prefer-ffmpeg", "--extract-audio",
+            "--audio-format", youtube_dl_ext,
+            "--audio-quality", youtube_dl_format,
+            "-o", download_directory,
+            youtube_dl_url
+        ]
     else:
         minus_f_format = youtube_dl_format
         if "youtu" in youtube_dl_url:
-            minus_f_format = youtube_dl_format + "+bestaudio"
-        command_to_exec = ["yt-dlp", "-c",
-        "--embed-subs", "-f", minus_f_format,
-        "--hls-prefer-ffmpeg", youtube_dl_url,
-        "-o", download_directory]
+            minus_f_format = youtube_dl_format + "+bestaudio/best"
+        command_to_exec = common_ytdlp_args + [
+            "--embed-subs", "-f", minus_f_format,
+            "--hls-prefer-ffmpeg",
+            "-o", download_directory,
+            youtube_dl_url
+        ]
 
     if youtube_dl_username is not None:
-        command_to_exec.append("--username")
-        command_to_exec.append(youtube_dl_username)
+        command_to_exec.extend(["--username", youtube_dl_username])
     if youtube_dl_password is not None:
-        command_to_exec.append("--password")
-        command_to_exec.append(youtube_dl_password)
+        command_to_exec.extend(["--password", youtube_dl_password])
 
     start = datetime.now()
     asyncio.create_task(clendir(save_ytdl_json_path))
 
     # yt-dlp download with real-time progress
+    # stdout/stderr dono ko ek hi pipe me read kar rahe hain. Pehle code sirf stderr
+    # read karta tha; yt-dlp progress stdout me bhi aata hai, jisse pipe full hoke
+    # large downloads hang/stuck ho sakte the.
     download_start_time = time.time()
-    process = await asyncio.create_subprocess_exec(
-        *command_to_exec,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
-    )
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *command_to_exec,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT
+        )
+    except FileNotFoundError:
+        await update.message.edit(text="**ERROR:** `yt-dlp` install nahi hai. Requirements install/deploy dobara karo.")
+        return
     
     last_progress_update = 0
-    e_response = ""
-    t_response = ""
+    ytdlp_output = ""
     
     while True:
-        line = await process.stderr.readline()
+        line = await process.stdout.readline()
         if not line:
             break
         
-        decoded_line = line.decode().strip()
-        e_response += decoded_line + "\n"
+        decoded_line = line.decode(errors="ignore").strip()
+        if decoded_line:
+            ytdlp_output += decoded_line + "\n"
         
         # Parse yt-dlp progress: [download]  12.5% of 50.00MiB at  1.50MiB/s ETA 00:15
         if "[download]" in decoded_line and "%" in decoded_line:
@@ -215,51 +240,46 @@ async def youtube_dl_call_back(bot, update):
                     
                     completed_blocks = math.floor(percentage / 5)
                     remaining_blocks = 20 - completed_blocks
-                    progress_bar = "▓" * completed_blocks + "░" * remaining_blocks
+                    progress_bar = "â–“" * completed_blocks + "â–‘" * remaining_blocks
                     
                     elapsed = now - download_start_time
                     elapsed_str = TimeFormatter(milliseconds=int(elapsed * 1000))
                     
-                    progress_text = f"""╔════════════════════════════════════╗
-║ ⬇️ ʏᴛ-ᴅʟᴘ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ...            ║
-╠════════════════════════════════════╣
-║ 📁 {display_name}
-║
-║ {progress_bar} {percentage}%
-║
-║ 🚀 Speed: {speed}
-║ 📦 Size: {total_size}
-║ ⏱ ETA: {eta}
-║ ⏳ Elapsed: {elapsed_str}
-╚════════════════════════════════════╝"""
+                    progress_text = f"""â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+â•‘ â¬‡ï¸ Êá´›-á´…ÊŸá´˜ á´…á´á´¡É´ÊŸá´á´€á´…ÉªÉ´É¢...            â•‘
+â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•£
+â•‘ ðŸ“ {display_name}
+â•‘
+â•‘ {progress_bar} {percentage}%
+â•‘
+â•‘ ðŸš€ Speed: {speed}
+â•‘ ðŸ“¦ Size: {total_size}
+â•‘ â± ETA: {eta}
+â•‘ â³ Elapsed: {elapsed_str}
+â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"""
                     
                     await update.message.edit(text=progress_text)
                     last_progress_update = now
             except Exception as e:
                 logger.error(f"Progress parse error: {e}")
     
-    stdout, stderr = await process.communicate()
-    e_response += stderr.decode()
-    t_response += stdout.decode()
-    
-    e_response = e_response.strip()
-    t_response = t_response.strip()
+    await process.wait()
+    ytdlp_output = ytdlp_output.strip()
 
-    if e_response and not t_response:
-        await bot.edit_message_text(chat_id=update.message.chat.id,
-        message_id=update.message.id, text="**ERROR : Download failed ⚠️**")
-        return
-
-    if not t_response:
+    if process.returncode != 0:
+        last_error = "\n".join(ytdlp_output.splitlines()[-5:]) or "Unknown yt-dlp error"
         asyncio.create_task(clendir(tmp_directory_for_each_user))
-        await bot.edit_message_text(chat_id=update.message.chat.id,
-        text="ERROR : File not found 😑", message_id=update.message.id)
+        await bot.edit_message_text(
+            chat_id=update.message.chat.id,
+            message_id=update.message.id,
+            text=f"**ERROR : Download failed âš ï¸**\n`{last_error[:900]}`"
+        )
         return
 
     file_size, file_location = await get_flocation(download_directory, youtube_dl_ext)
 
     if file_size == 0:
-        await update.message.edit(text="ERROR : File Not found 🙁")
+        await update.message.edit(text="ERROR : File Not found ðŸ™")
         asyncio.create_task(clendir(tmp_directory_for_each_user))
         return
 
@@ -336,7 +356,7 @@ async def youtube_dl_call_back(bot, update):
             asyncio.create_task(clendir(thumbnail))
         asyncio.create_task(clendir(file_location))
         await bot.edit_message_text(
-        text="<b>ᴜᴘʟᴏᴀᴅᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ ✔️\n\nᴊᴏɪɴ @Bimbobot69</b>",
+        text="<b>á´œá´˜ÊŸá´á´€á´…á´‡á´… sá´œá´„á´„á´‡ssÒ“á´œÊŸÊŸÊ âœ”ï¸\n\ná´Šá´ÉªÉ´ @Bimbobot69</b>",
         chat_id=update.message.chat.id,
         message_id=update.message.id,
         disable_web_page_preview=True)
