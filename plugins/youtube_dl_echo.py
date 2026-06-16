@@ -151,30 +151,28 @@ async def echo(bot, update):
     original_name = file_name if file_name else "Not Set"
     await send_log(bot, "Link Received", update.from_user, url, f"<b>📁 Custom Name:</b> {original_name}")
 
+    # Powerful configuration for yt-dlp
+    command_to_exec = [
+        "yt-dlp",
+        "--no-warnings",
+        "--youtube-skip-dash-manifest",
+        "--geo-bypass",
+        "--add-header", "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "-j",
+        url
+    ]
+
     if Config.TECH_VJ_HTTP_PROXY != "":
-        command_to_exec = [
-            "yt-dlp",
-            "--no-warnings",
-            "--youtube-skip-dash-manifest",
-            "-j",
-            url,
-            "--proxy", Config.TECH_VJ_HTTP_PROXY
-        ]
-    else:
-        command_to_exec = [
-            "yt-dlp",
-            "--no-warnings",
-            "--youtube-skip-dash-manifest",
-            "-j",
-            url
-        ]
+        command_to_exec.extend(["--proxy", Config.TECH_VJ_HTTP_PROXY])
+
+    # Auto-detect cookies file for protected/age-restricted websites
+    if os.path.exists("cookies.txt"):
+        command_to_exec.extend(["--cookies", "cookies.txt"])
 
     if youtube_dl_username is not None:
-        command_to_exec.append("--username")
-        command_to_exec.append(youtube_dl_username)
+        command_to_exec.extend(["--username", youtube_dl_username])
     if youtube_dl_password is not None:
-        command_to_exec.append("--password")
-        command_to_exec.append(youtube_dl_password)
+        command_to_exec.extend(["--password", youtube_dl_password])
 
     process = await asyncio.create_subprocess_exec(*command_to_exec,
     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
@@ -209,10 +207,13 @@ async def echo(bot, update):
             logger.error(f"Direct download check error: {e}")
         
         error_message = e_response.replace(Translation.TECH_VJ_ERROR_YTDLP, "")
-        if "This video is only available for registered users." in error_message:
+        if "This video is only available for registered users." in error_message or "Sign in" in error_message:
             error_message = Translation.TECH_VJ_SET_CUSTOM_USERNAME_PASSWORD
         else:
-            error_message = "sᴀɪᴅ ɪɴᴠᴀʟɪᴅ ᴜʀʟ 🚸"
+            # Show the actual error to the user instead of a generic text
+            actual_error = error_message.split('\n')[0][:200]
+            error_message = f"sᴀɪᴅ ɪɴᴠᴀʟɪᴅ ᴜʀʟ 🚸\n\n**Reason:** `{actual_error}`\n*(If it needs a login, add cookies.txt to your bot files)*"
+            
         await bot.send_message(chat_id=update.chat.id,
         text=Translation.TECH_VJ_NO_VOID_FORMAT_FOUND.format(str(error_message)),
         disable_web_page_preview=True, parse_mode=enums.ParseMode.HTML,
