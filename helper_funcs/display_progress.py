@@ -2,66 +2,80 @@
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
 # Ask Doubt on telegram @KingVJ01
 
-# the logging things
 import logging
-logging.basicConfig(level=logging.DEBUG,
+import math
+import os
+import time
+import shutil
+
+logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-import math, os, time, shutil
-
-
 from config import Config
-# the Strings used for this "thing"
 from translation import Translation
-
 
 async def progress_for_pyrogram(
     current,
     total,
     ud_type,
     message,
-    start
+    start,
+    file_name="",
+    is_download=False
 ):
     now = time.time()
     diff = now - start
-    if round(diff % 10.00) == 0 or current == total:
-        # if round(current / total * 100, 0) % 5 == 0:
+    
+    if round(diff % 10.00) == 0 or current == total or current == 0:
+        if total == 0:
+            return
+        
         percentage = current * 100 / total
-        speed = current / diff
+        speed = current / diff if diff > 0 else 0
         elapsed_time = round(diff) * 1000
-        time_to_completion = round((total - current) / speed) * 1000
+        time_to_completion = round((total - current) / speed) * 1000 if speed > 0 else 0
         estimated_total_time = elapsed_time + time_to_completion
 
         elapsed_time = TimeFormatter(milliseconds=elapsed_time)
         estimated_total_time = TimeFormatter(milliseconds=estimated_total_time)
 
-        progress = "[{0}{1}] \nP: {2}%\n".format(
-            ''.join(["█" for i in range(math.floor(percentage / 5))]),
-            ''.join(["░" for i in range(20 - math.floor(percentage / 5))]),
-            round(percentage, 2))
+        # Progress bar with 20 blocks
+        completed_blocks = math.floor(percentage / 5)
+        remaining_blocks = 20 - completed_blocks
+        progress_bar = "▓" * completed_blocks + "░" * remaining_blocks
+        
+        # Action emoji
+        action_emoji = "⬇️" if is_download else "⬆️"
+        action_text = "ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ" if is_download else "ᴜᴘʟᴏᴀᴅɪɴɢ"
+        
+        # Clean filename
+        display_name = file_name if file_name else "ᴜɴᴋɴᴏᴡɴ ғɪʟᴇ"
+        if len(display_name) > 30:
+            display_name = display_name[:27] + "..."
 
-        tmp = progress + "{0} of {1}\nSpeed: {2}/s\nETA: {3}\n".format(
-            humanbytes(current),
-            humanbytes(total),
-            humanbytes(speed),
-            # elapsed_time if elapsed_time != '' else "0 s",
-            estimated_total_time if estimated_total_time != '' else "0 s"
-        )
+        # Hi-tech progress message
+        tmp = f"""╔════════════════════════════════════╗
+║ {action_emoji} {action_text}...              ║
+╠════════════════════════════════════╣
+║ 📁 {display_name}
+║
+║ {progress_bar} {round(percentage, 2)}%
+║
+║ 🚀 Speed: {humanbytes(speed)}/s
+║ 📦 Size: {humanbytes(current)} / {humanbytes(total)}
+║ ⏱ ETA: {estimated_total_time if estimated_total_time else '0 s'}
+║ ⏳ Elapsed: {elapsed_time if elapsed_time else '0 s'}
+╚════════════════════════════════════╝"""
+
         try:
-            await message.edit(
-                text="{}\n {}".format(
-                    ud_type,
-                    tmp
-                )
-            )
-        except:
+            await message.edit(text=tmp)
+        except Exception as e:
+            logger.error(f"Progress edit error: {e}")
             pass
 
 
 def humanbytes(size):
-    # https://stackoverflow.com/a/49361727/4723940
-    # 2**10 = 1024
     if not size:
         return ""
     power = 2**10
@@ -84,4 +98,3 @@ def TimeFormatter(milliseconds: int) -> str:
         ((str(seconds) + "s, ") if seconds else "") + \
         ((str(milliseconds) + "ms, ") if milliseconds else "")
     return tmp[:-2]
-
