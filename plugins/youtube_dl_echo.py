@@ -38,12 +38,12 @@ async def send_log(bot, action, user, link, extra=""):
     if Config.TECH_VJ_LOG_CHANNEL and Config.TECH_VJ_LOG_CHANNEL != 0:
         try:
             username = f"@{user.username}" if user.username else "No Username"
-            text = f"""<b>📊 New Bot Activity</b>
+            text = f"""<b>ðŸ“Š New Bot Activity</b>
 
-<b>👤 User:</b> {user.mention} (<code>{user.id}</code>)
-<b>🔖 Username:</b> {username}
-<b>⚡ Action:</b> {action}
-<b>🔗 Link:</b> <code>{link}</code>
+<b>ðŸ‘¤ User:</b> {user.mention} (<code>{user.id}</code>)
+<b>ðŸ”– Username:</b> {username}
+<b>âš¡ Action:</b> {action}
+<b>ðŸ”— Link:</b> <code>{link}</code>
 {extra}"""
             await bot.send_message(
                 chat_id=Config.TECH_VJ_LOG_CHANNEL,
@@ -91,19 +91,19 @@ async def is_direct_download_url(url):
 async def echo(bot, update):
     if not await check_verification(bot, update.from_user.id) and Config.TECH_VJ == True:
         btn = [[
-            InlineKeyboardButton("👨‍💻 ᴠᴇʀɪғʏ", url=await get_token(bot, update.from_user.id, f"https://telegram.me/{Config.TECH_VJ_BOT_USERNAME}?start="))
+            InlineKeyboardButton("ðŸ‘¨â€ðŸ’» á´ á´‡Ê€ÉªÒ“Ê", url=await get_token(bot, update.from_user.id, f"https://telegram.me/{Config.TECH_VJ_BOT_USERNAME}?start="))
         ],[
-            InlineKeyboardButton("🔻 ʜᴏᴡ ᴛᴏ ᴏᴘᴇɴ ʟɪɴᴋ ᴀɴᴅ ᴠᴇʀɪғʏ 🔺", url=f"{Config.TECH_VJ_TUTORIAL}")
+            InlineKeyboardButton("ðŸ”» Êœá´á´¡ á´›á´ á´á´˜á´‡É´ ÊŸÉªÉ´á´‹ á´€É´á´… á´ á´‡Ê€ÉªÒ“Ê ðŸ”º", url=f"{Config.TECH_VJ_TUTORIAL}")
         ]]
         await update.reply_text(
-            text="<b>ᴅᴜᴇ ᴛᴏ ᴏᴠᴇʀʟᴏᴀᴅ ᴏɴ ʙᴏᴛ ʏᴏᴜ ʜᴀᴠᴇ ᴠᴇʀɪғʏ ғɪʀsᴛ\nᴋɪɴᴅʟʏ ᴠᴇʀɪғʏ ғɪʀsᴛ\n\nɪғ ʏᴏᴜ ᴅᴏɴ'ᴛ ᴋɴᴏᴡ ʜᴏᴡ ᴛᴏ ᴠᴇʀɪғʏ ᴛʜᴇɴ ᴛᴀᴘ ᴏɴ ʜᴏᴡ ᴛᴏ ᴏᴘᴇɴ ʟɪɴᴋ ʙᴜᴛᴛᴏɴ ᴛʜᴇɴ sᴇᴇ 60 sᴇᴄᴏɴᴅ ᴠɪᴅᴇᴏ ᴛʜᴇɴ ᴄʟɪᴄᴋ ᴏɴ ᴠᴇʀɪғʏ ʙᴜᴛᴛᴏɴ ᴀɴᴅ ᴠᴇʀɪғʏ</b>",
+            text="<b>á´…á´œá´‡ á´›á´ á´á´ á´‡Ê€ÊŸá´á´€á´… á´É´ Ê™á´á´› Êá´á´œ Êœá´€á´ á´‡ á´ á´‡Ê€ÉªÒ“Ê Ò“ÉªÊ€sá´›\ná´‹ÉªÉ´á´…ÊŸÊ á´ á´‡Ê€ÉªÒ“Ê Ò“ÉªÊ€sá´›\n\nÉªÒ“ Êá´á´œ á´…á´É´'á´› á´‹É´á´á´¡ Êœá´á´¡ á´›á´ á´ á´‡Ê€ÉªÒ“Ê á´›Êœá´‡É´ á´›á´€á´˜ á´É´ Êœá´á´¡ á´›á´ á´á´˜á´‡É´ ÊŸÉªÉ´á´‹ Ê™á´œá´›á´›á´É´ á´›Êœá´‡É´ sá´‡á´‡ 60 sá´‡á´„á´É´á´… á´ Éªá´…á´‡á´ á´›Êœá´‡É´ á´„ÊŸÉªá´„á´‹ á´É´ á´ á´‡Ê€ÉªÒ“Ê Ê™á´œá´›á´›á´É´ á´€É´á´… á´ á´‡Ê€ÉªÒ“Ê</b>",
             protect_content=True,
             reply_markup=InlineKeyboardMarkup(btn)
         )
         return
 
     await AddUser(bot, update)
-    imog = await update.reply_text("**ᴘʀᴏᴄᴇssɪɴɢ ʏᴏᴜʀ ʀᴇǫᴜᴇsᴛ ᴅᴇᴀʀ...⚡**", reply_to_message_id=update.id)
+    imog = await update.reply_text("**á´˜Ê€á´á´„á´‡ssÉªÉ´É¢ Êá´á´œÊ€ Ê€á´‡Ç«á´œá´‡sá´› á´…á´‡á´€Ê€...âš¡**", reply_to_message_id=update.id)
 
     youtube_dl_username = None
     youtube_dl_password = None
@@ -149,13 +149,15 @@ async def echo(bot, update):
 
     # Log channel mein link bhejo
     original_name = file_name if file_name else "Not Set"
-    await send_log(bot, "Link Received", update.from_user, url, f"<b>📁 Custom Name:</b> {original_name}")
+    await send_log(bot, "Link Received", update.from_user, url, f"<b>ðŸ“ Custom Name:</b> {original_name}")
 
     # Powerful configuration for yt-dlp
     command_to_exec = [
         "yt-dlp",
         "--no-warnings",
-        "--youtube-skip-dash-manifest",
+        # NOTE: --youtube-skip-dash-manifest is deprecated in new yt-dlp and prints
+        # to stderr even on success. This bot used to treat any stderr as failure,
+        # so every link looked invalid. Do not add that flag back.
         "--geo-bypass",
         "--add-header", "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "-j",
@@ -174,15 +176,25 @@ async def echo(bot, update):
     if youtube_dl_password is not None:
         command_to_exec.extend(["--password", youtube_dl_password])
 
-    process = await asyncio.create_subprocess_exec(*command_to_exec,
-    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    stdout, stderr = await process.communicate()
-    e_response = stderr.decode().strip()
-    t_response = stdout.decode().strip()
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *command_to_exec,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+    except FileNotFoundError:
+        await imog.edit("**ERROR:** `yt-dlp` install nahi hai. Requirements install/deploy dobara karo.")
+        return False
 
-    if e_response and "nonnumeric port" not in e_response:
+    stdout, stderr = await process.communicate()
+    e_response = stderr.decode(errors="ignore").strip()
+    t_response = stdout.decode(errors="ignore").strip()
+
+    # Warnings/deprecation text stderr me aa sakta hai even when yt-dlp succeeds.
+    # Isliye only return code non-zero ho tabhi failure maanenge.
+    if process.returncode != 0:
         # Yt-dlp fail ho gaya, direct download try karo
-        await imog.edit("**ʏᴛ-ᴅʟᴘ ғᴀɪʟᴇᴅ, ᴄʜᴇᴄᴋɪɴɢ ғᴏʀ ᴅɪʀᴇᴄᴛ ᴅᴏᴡɴʟᴏᴀᴅ...**")
+        await imog.edit("**Êá´›-á´…ÊŸá´˜ Ò“á´€ÉªÊŸá´‡á´…, á´„Êœá´‡á´„á´‹ÉªÉ´É¢ Ò“á´Ê€ á´…ÉªÊ€á´‡á´„á´› á´…á´á´¡É´ÊŸá´á´€á´…...**")
         try:
             is_direct = await is_direct_download_url(url)
             if is_direct:
@@ -190,14 +202,14 @@ async def echo(bot, update):
                 cb_string_file = "{}={}={}".format("file", "DIRECT", "AUTO")
                 cb_string_video = "{}={}={}".format("video", "DIRECT", "AUTO")
                 inline_keyboard.append([
-                    InlineKeyboardButton("📁 Download File", callback_data=(cb_string_file).encode("UTF-8")),
-                    InlineKeyboardButton("🎬 Download as Video", callback_data=(cb_string_video).encode("UTF-8"))
+                    InlineKeyboardButton("ðŸ“ Download File", callback_data=(cb_string_file).encode("UTF-8")),
+                    InlineKeyboardButton("ðŸŽ¬ Download as Video", callback_data=(cb_string_video).encode("UTF-8"))
                 ])
                 reply_markup = InlineKeyboardMarkup(inline_keyboard)
                 await imog.delete(True)
                 await bot.send_message(
                     chat_id=update.chat.id,
-                    text="**ᴅɪʀᴇᴄᴛ ʟɪɴᴋ ᴅᴇᴛᴇᴄᴛᴇᴅ ✅**\n\nᴄʜᴏᴏsᴇ ᴅᴏᴡɴʟᴏᴀᴅ ᴛʏᴘᴇ:",
+                    text="**á´…ÉªÊ€á´‡á´„á´› ÊŸÉªÉ´á´‹ á´…á´‡á´›á´‡á´„á´›á´‡á´… âœ…**\n\ná´„Êœá´á´sá´‡ á´…á´á´¡É´ÊŸá´á´€á´… á´›Êá´˜á´‡:",
                     reply_markup=reply_markup,
                     parse_mode=enums.ParseMode.HTML,
                     reply_to_message_id=update.id
@@ -212,7 +224,7 @@ async def echo(bot, update):
         else:
             # Show the actual error to the user instead of a generic text
             actual_error = error_message.split('\n')[0][:200]
-            error_message = f"sᴀɪᴅ ɪɴᴠᴀʟɪᴅ ᴜʀʟ 🚸\n\n**Reason:** `{actual_error}`\n*(If it needs a login, add cookies.txt to your bot files)*"
+            error_message = f"sá´€Éªá´… ÉªÉ´á´ á´€ÊŸÉªá´… á´œÊ€ÊŸ ðŸš¸\n\n**Reason:** `{actual_error}`\n*(If it needs a login, add cookies.txt to your bot files)*"
             
         await bot.send_message(chat_id=update.chat.id,
         text=Translation.TECH_VJ_NO_VOID_FORMAT_FOUND.format(str(error_message)),
@@ -323,7 +335,7 @@ async def echo(bot, update):
 
     else:
         # Yt-dlp response nahi aaya, direct download try karo
-        await imog.edit("**ɴᴏ ғᴏʀᴍᴀᴛ ғᴏᴜɴᴅ, ᴄʜᴇᴄᴋɪɴɢ ғᴏʀ ᴅɪʀᴇᴄᴛ ᴅᴏᴡɴʟᴏᴀᴅ...**")
+        await imog.edit("**É´á´ Ò“á´Ê€á´á´€á´› Ò“á´á´œÉ´á´…, á´„Êœá´‡á´„á´‹ÉªÉ´É¢ Ò“á´Ê€ á´…ÉªÊ€á´‡á´„á´› á´…á´á´¡É´ÊŸá´á´€á´…...**")
         try:
             is_direct = await is_direct_download_url(url)
             if is_direct:
@@ -331,14 +343,14 @@ async def echo(bot, update):
                 cb_string_file = "{}={}={}".format("file", "DIRECT", "AUTO")
                 cb_string_video = "{}={}={}".format("video", "DIRECT", "AUTO")
                 inline_keyboard.append([
-                    InlineKeyboardButton("📁 Download File", callback_data=(cb_string_file).encode("UTF-8")),
-                    InlineKeyboardButton("🎬 Download as Video", callback_data=(cb_string_video).encode("UTF-8"))
+                    InlineKeyboardButton("ðŸ“ Download File", callback_data=(cb_string_file).encode("UTF-8")),
+                    InlineKeyboardButton("ðŸŽ¬ Download as Video", callback_data=(cb_string_video).encode("UTF-8"))
                 ])
                 reply_markup = InlineKeyboardMarkup(inline_keyboard)
                 await imog.delete(True)
                 await bot.send_message(
                     chat_id=update.chat.id,
-                    text="**ᴅɪʀᴇᴄᴛ ʟɪɴᴋ ᴅᴇᴛᴇᴄᴛᴇᴅ ✅**\n\nᴄʜᴏᴏsᴇ ᴅᴏᴡɴʟᴏᴀᴅ ᴛʏᴘᴇ:",
+                    text="**á´…ÉªÊ€á´‡á´„á´› ÊŸÉªÉ´á´‹ á´…á´‡á´›á´‡á´„á´›á´‡á´… âœ…**\n\ná´„Êœá´á´sá´‡ á´…á´á´¡É´ÊŸá´á´€á´… á´›Êá´˜á´‡:",
                     reply_markup=reply_markup,
                     parse_mode=enums.ParseMode.HTML,
                     reply_to_message_id=update.id
