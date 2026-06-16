@@ -35,8 +35,9 @@ class Config(object):
     TECH_VJ_TG_MAX_FILE_SIZE = 4194304000
     TECH_VJ_FREE_USER_MAX_FILE_SIZE = 50000000
 
-    # chunk size that should be used with requests
-    TECH_VJ_CHUNK_SIZE = int(128)
+    # chunk size that should be used with requests/aiohttp direct downloads
+    # 128 bytes bahut slow hai; env se override kar sakte ho.
+    TECH_VJ_CHUNK_SIZE = int(os.environ.get("TECH_VJ_CHUNK_SIZE", str(1024 * 1024)))
 
     # proxy for accessing youtube-dl in GeoRestricted Areas
     TECH_VJ_HTTP_PROXY = ""
