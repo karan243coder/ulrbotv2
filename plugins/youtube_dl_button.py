@@ -235,7 +235,7 @@ async def youtube_dl_call_back(bot, update):
             thumb=thumbnail,
             reply_to_message_id=update.message.reply_to_message.id,
             progress=progress_for_pyrogram,
-            progress_args=(Translation.TECH_VJ_UPLOAD_START, update.message, start_time))
+            progress_args=(Translation.TECH_VJ_UPLOAD_START, update.message, start_time, file_name, False))
         elif tg_send_type == "video":
             width, height, duration = await Mdata01(file_location)
             thumbnail = await Gthumb02(bot, update, duration, file_location)
