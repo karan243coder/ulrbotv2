@@ -74,7 +74,7 @@ async def ddl_call_back(bot, update):
     
     start = datetime.now()
     await bot.edit_message_text(
-        text=Translation.DOWNLOAD_START,
+        text=Translation.TECH_VJ_DOWNLOAD_START,
         chat_id=update.message.chat.id,
         message_id=update.message.id
     )
@@ -105,7 +105,7 @@ async def ddl_call_back(bot, update):
     if os.path.exists(download_directory):
         end_one = datetime.now()
         await bot.edit_message_text(
-            text=Translation.UPLOAD_START,
+            text=Translation.TECH_VJ_UPLOAD_START,
             chat_id=update.message.chat.id,
             message_id=update.message.id
         )
